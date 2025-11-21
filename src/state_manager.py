@@ -11,7 +11,7 @@ from . import config
 def load_state():
     """
     Load trading position state from file.
-    
+
     Returns:
         dict: state dictionary with position and last_signal_date
     """
@@ -40,7 +40,7 @@ def load_state():
 def save_state(state):
     """
     Save trading position state to file.
-    
+
     Args:
         state: dict containing position and last_signal_date
     """

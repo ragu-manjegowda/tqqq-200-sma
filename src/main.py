@@ -21,7 +21,7 @@ Usage:
   - Run *after* market close (US market close ~1:00 PM PT). Example: run at 1:05 PM PT.
       uv run tqqq-sma
 
-NOT FINANCIAL ADVICE: This script only *signals* the mechanical rule we agreed on. 
+NOT FINANCIAL ADVICE: This script only *signals* the mechanical rule we agreed on.
 Use with appropriate position sizing and risk controls.
 """
 import os
@@ -40,12 +40,12 @@ def main():
     """Main entry point for the TQQQ SMA trading signal system."""
     # Ensure data directory exists
     os.makedirs(config.DATA_DIR, exist_ok=True)
-    
+
     print("")
     print("═" * 60)
     print("  TQQQ 200-Day SMA Trading Signal")
     print("═" * 60)
-    
+
     # Load state
     state = load_state()
 
@@ -99,7 +99,7 @@ def main():
         sma200 = float(sma200_val.iloc[0]) if not sma200_val.isna().iloc[0] else None
     else:
         sma200 = float(sma200_val) if not pd.isna(sma200_val) else None
-    
+
     # Get latest TQQQ price
     latest_tqqq = tqqq_df.iloc[-1]
     tqqq_close = latest_tqqq['adj_close'].iloc[0] if isinstance(latest_tqqq['adj_close'], pd.Series) else float(latest_tqqq['adj_close'])
@@ -179,7 +179,7 @@ def main():
                 else:
                     # negative means current > buy_level (should not happen if buy triggered) but handle gracefully
                     print(f"   QQQ is already above BUY threshold by {-pct_to_buy:.2f}% (check state).")
-    
+
     # SELL condition (only if currently TQQQ)
     elif position == "TQQQ":
         if qqq_close <= sell_level:

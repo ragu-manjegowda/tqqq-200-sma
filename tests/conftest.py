@@ -31,7 +31,7 @@ def sample_qqq_data():
             prices.append(550 - (i - 100) * 0.3)  # Downtrend
         else:
             prices.append(535 + (i - 150) * 0.4)  # Uptrend again
-    
+
     df = pd.DataFrame({'adj_close': prices}, index=dates)
     return df
 

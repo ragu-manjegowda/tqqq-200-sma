@@ -26,7 +26,7 @@ if [ -d "data" ]; then
     echo ""
     read -p "Are you sure you want to continue? (yes/no): " -r
     echo
-    
+
     if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
         echo "🗑️  Removing data/ directory..."
         rm -rf data/

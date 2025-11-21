@@ -12,7 +12,7 @@ from . import config
 def append_signal_log(row: dict):
     """
     Append a signal/trade to the CSV log file.
-    
+
     Args:
         row: dictionary containing trade signal data
     """
@@ -24,20 +24,20 @@ def append_signal_log(row: dict):
 def send_email(subject, body):
     """
     Send email notification if email alerts are enabled.
-    
+
     Args:
         subject: email subject line
         body: email body content
     """
     if not config.EMAIL_ALERT.get("enabled", False):
         return
-    
+
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = config.EMAIL_ALERT["from_addr"]
     msg["To"] = ", ".join(config.EMAIL_ALERT["to_addrs"])
     msg.set_content(body)
-    
+
     try:
         with smtplib.SMTP(config.EMAIL_ALERT["smtp_server"], config.EMAIL_ALERT["smtp_port"]) as s:
             s.starttls()

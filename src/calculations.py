@@ -7,11 +7,11 @@ import math
 def compute_sma(series, period):
     """
     Compute Simple Moving Average.
-    
+
     Args:
         series: pandas Series of prices
         period: number of periods for the moving average
-        
+
     Returns:
         pandas Series with SMA values
     """
@@ -21,14 +21,14 @@ def compute_sma(series, period):
 def pct_distance(current, target):
     """
     Calculate percentage distance from current to target.
-    
+
     Returns positive percentage if current < target (need to go up),
     negative percentage if current > target (already above).
-    
+
     Args:
         current: current value
         target: target value
-        
+
     Returns:
         float: percentage distance, or None if invalid inputs
     """
@@ -40,10 +40,10 @@ def pct_distance(current, target):
 def format_pct(val):
     """
     Format percentage value for display.
-    
+
     Args:
         val: percentage value or None
-        
+
     Returns:
         str: formatted percentage string
     """
