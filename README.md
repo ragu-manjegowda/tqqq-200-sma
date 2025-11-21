@@ -384,6 +384,56 @@ This script is a mechanical signal generator for educational purposes. Important
 - Never trade with money you can't afford to lose
 - Consult a financial advisor for personalized advice
 
+## 🧪 Testing
+
+### Running Tests
+
+The project includes a comprehensive test suite with 56 unit tests covering core functionality.
+
+**Install test dependencies:**
+```bash
+uv sync --extra dev
+```
+
+**Run all tests:**
+```bash
+uv run pytest
+```
+
+**Run with verbose output:**
+```bash
+uv run pytest -v
+```
+
+**Run with coverage report:**
+```bash
+uv run pytest --cov=src --cov-report=html
+```
+
+**Run specific test file:**
+```bash
+uv run pytest tests/test_calculations.py
+```
+
+**Run specific test:**
+```bash
+uv run pytest tests/test_signal_logic.py::TestBuySignalLogic::test_buy_signal_triggered
+```
+
+### Test Coverage
+
+The test suite includes:
+- ✅ **17 tests** for calculations (SMA, percentages, formatting)
+- ✅ **16 tests** for data validation and edge cases
+- ✅ **15 tests** for signal logic (BUY/SELL conditions, thresholds)
+- ✅ **8 tests** for state and cache management
+
+**Test Categories:**
+- `test_calculations.py` - SMA computation, percentage calculations
+- `test_signal_logic.py` - Trading signal generation, state transitions
+- `test_data_validation.py` - Edge cases, real-world market scenarios
+- `test_state_management.py` - Position state, cache expiry
+
 ## 🛠️ Development
 
 ### Project Structure
@@ -410,9 +460,16 @@ tqqq-sma/
 ```
 
 ### Dependencies
+
+**Core:**
 - **pandas** (>=2.3.3) - Data manipulation and SMA calculation
 - **yfinance** (>=0.2.66) - Free market data from Yahoo Finance
 - **plotly** (>=5.24.1) - Interactive chart generation
+
+**Development (optional):**
+- **pytest** (>=8.0.0) - Testing framework
+- **pytest-cov** (>=4.1.0) - Code coverage reports
+- **pytest-mock** (>=3.12.0) - Mocking utilities
 
 ### Testing Changes
 1. Modify settings in `src/main.py`

@@ -17,5 +17,14 @@ wheels/
 venv/
 ENV/
 
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+.hypothesis/
+
 # Runtime data directory (all generated files)
 data/
