@@ -78,13 +78,12 @@ class TestCacheManagement:
         assert loaded_cache == test_data
     
     def test_cache_expiry(self, monkeypatch, tmp_path):
-        """Test cache expiry."""
+        """Test cache expiry based on market close."""
         cache_file = str(tmp_path / "cache.pkl")
         monkeypatch.setattr(main, 'CACHE_FILE', cache_file)
-        monkeypatch.setattr(main, 'CACHE_EXPIRY_HOURS', 1)
         
-        # Save old cache
-        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        # Save old cache (before last market close)
+        old_time = datetime.now(timezone.utc) - timedelta(days=2)
         cache_data = {
             'timestamp': old_time,
             'data': {'QQQ_3y': {'some': 'data'}}
@@ -92,18 +91,21 @@ class TestCacheManagement:
         with open(cache_file, 'wb') as f:
             pickle.dump(cache_data, f)
         
-        # Should return None (expired)
+        # Mock get_last_market_close to return yesterday's close
+        mock_last_close = datetime.now(timezone.utc) - timedelta(days=1)
+        monkeypatch.setattr(main, 'get_last_market_close', lambda: mock_last_close)
+        
+        # Should return None (expired - cache is older than last market close)
         loaded_cache = main.load_cache()
         assert loaded_cache is None
     
     def test_cache_not_expired(self, monkeypatch, tmp_path):
-        """Test cache not expired."""
+        """Test cache not expired (newer than last market close)."""
         cache_file = str(tmp_path / "cache.pkl")
         monkeypatch.setattr(main, 'CACHE_FILE', cache_file)
-        monkeypatch.setattr(main, 'CACHE_EXPIRY_HOURS', 24)
         
-        # Save recent cache
-        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        # Save recent cache (after last market close)
+        recent_time = datetime.now(timezone.utc)
         cache_data = {
             'timestamp': recent_time,
             'data': {'QQQ_3y': {'test': 'data'}}
@@ -111,7 +113,11 @@ class TestCacheManagement:
         with open(cache_file, 'wb') as f:
             pickle.dump(cache_data, f)
         
-        # Should return data
+        # Mock get_last_market_close to return a time before the cache
+        mock_last_close = datetime.now(timezone.utc) - timedelta(hours=2)
+        monkeypatch.setattr(main, 'get_last_market_close', lambda: mock_last_close)
+        
+        # Should return data (cache is newer than last market close)
         loaded_cache = main.load_cache()
         assert loaded_cache == {'QQQ_3y': {'test': 'data'}}
     

@@ -208,7 +208,7 @@ INTERACTIVE_CHART_FILENAME = "data/tqqq_sma_chart.html"
 
 # Cache settings
 CACHE_FILE = "data/market_data_cache.pkl"
-CACHE_EXPIRY_HOURS = 24                         # Refresh cache after 24 hours
+# Cache expires after market close (4 PM ET / 9 PM UTC)
 
 # Data settings
 HISTORY_YEARS = 3          # Years of data for signal generation
@@ -344,26 +344,45 @@ timestamp_utc,action,position_from,position_to,date,qqq_close,sma200,pct_vs_sma,
 
 ## 💾 Data Caching
 
-The script caches market data to improve performance:
+The script uses **market-close-based caching** to ensure you always get the latest closing prices:
 
 ### How It Works
-1. **First run**: Fetches data from Yahoo Finance, saves to cache
-2. **Subsequent runs**: Uses cached data (instant!)
-3. **Auto-refresh**: Cache expires after 24 hours
-4. **Smart updates**: Only fetches when needed
+1. **First run (after market close)**: Fetches fresh data from Yahoo Finance, saves to cache
+2. **Subsequent runs (same day)**: Uses cached data (instant!)
+3. **Auto-refresh**: Cache expires after the next market close (4 PM ET / 9 PM UTC)
+4. **Smart updates**: Always gets latest close when available
+
+### Market-Close Logic
+- **US Market closes**: 4:00 PM ET (9:00 PM UTC) on weekdays
+- **Before market close**: Uses previous day's closing price
+- **After market close**: Fetches and uses today's closing price
+- **Weekends**: Uses Friday's closing price (cache valid until Monday after close)
 
 ### Cache Status
 The script shows cache status:
 ```
-Using cached data (age: 2h 15m)  ← Using cache
-Fetching market data...          ← Cache expired or missing
+Using cached data from today (age: 2h 15m)  ← Cache has today's close
+Cache is from before last market close...   ← Fetching fresh data
+Fetching market data...                     ← No cache, fetching fresh
 ```
 
 ### Cache Management
 - **Location**: `data/market_data_cache.pkl`
 - **Size**: ~34KB (compressed)
-- **Expiry**: 24 hours (configurable)
+- **Expiry**: After each market close (4 PM ET daily)
 - **Clear cache**: Delete `data/market_data_cache.pkl` to force refresh
+
+### Example Timeline
+**Monday:**
+- 10:00 AM ET: Uses Friday's close (cache valid)
+- 4:05 PM ET: Fetches Monday's close, updates cache
+- 6:00 PM ET: Uses Monday's close (cache valid)
+
+**Tuesday:**
+- 8:00 AM ET: Uses Monday's close (cache valid)
+- 4:05 PM ET: Fetches Tuesday's close, updates cache
+
+This ensures you always get the most recent market close data! 📊
 
 ## ⚠️ Risk Disclaimer
 

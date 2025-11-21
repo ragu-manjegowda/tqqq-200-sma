@@ -53,7 +53,7 @@ STATE_FILE = "data/position_state.json"
 SIGNAL_LOG_CSV = "data/signals_log.csv"
 HISTORY_YEARS = 3       # years of data to fetch for reliable SMA
 CACHE_FILE = "data/market_data_cache.pkl"
-CACHE_EXPIRY_HOURS = 24  # Refresh cache after 24 hours
+# Cache expires after market close (4 PM ET / 9 PM UTC)
 
 # Whether to print ASCII chart of last 6 months with buy/sell levels
 PRINT_CHART = True
@@ -85,7 +85,7 @@ def load_state():
                 return json.load(f)
         except Exception:
             # fallback if corrupted
-            return {"position": "CASH", "last_signal_date": None, "created": datetime.utcnow().isoformat()}
+            return {"position": "CASH", "last_signal_date": None, "created": datetime.now(timezone.utc).isoformat()}
     else:
         state = {"position": "CASH", "last_signal_date": None, "created": datetime.now(timezone.utc).isoformat()}
         save_state(state)
@@ -95,8 +95,27 @@ def save_state(state):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2, sort_keys=True)
 
+def get_last_market_close():
+    """Get the timestamp of the last market close (4 PM ET / 9 PM UTC)"""
+    now_utc = datetime.now(timezone.utc)
+    
+    # Market close is at 4 PM ET = 9 PM UTC (21:00)
+    # Adjust for today or yesterday based on current time
+    today_close = now_utc.replace(hour=21, minute=0, second=0, microsecond=0)
+    
+    # If it's currently before 9 PM UTC, use yesterday's close
+    if now_utc.hour < 21:
+        today_close = today_close - timedelta(days=1)
+    
+    # Handle weekends - go back to Friday's close
+    # Monday=0, Sunday=6
+    while today_close.weekday() >= 5:  # Saturday=5, Sunday=6
+        today_close = today_close - timedelta(days=1)
+    
+    return today_close
+
 def load_cache():
-    """Load cached market data if available and not expired"""
+    """Load cached market data if available and not expired (based on market close)"""
     if not os.path.exists(CACHE_FILE):
         return None
     
@@ -104,15 +123,20 @@ def load_cache():
         with open(CACHE_FILE, 'rb') as f:
             cache_data = pickle.load(f)
         
-        # Check if cache is expired
+        # Check if cache is expired based on market close time
         cache_time = cache_data.get('timestamp')
         if cache_time:
-            age = datetime.now(timezone.utc) - cache_time
-            if age < timedelta(hours=CACHE_EXPIRY_HOURS):
-                debug_print(f"Using cached data (age: {age.seconds // 3600}h {(age.seconds % 3600) // 60}m)")
+            last_market_close = get_last_market_close()
+            
+            # Cache is valid only if it was created AFTER the last market close
+            if cache_time >= last_market_close:
+                age = datetime.now(timezone.utc) - cache_time
+                debug_print(f"Using cached data from today (age: {age.seconds // 3600}h {(age.seconds % 3600) // 60}m)")
                 return cache_data.get('data')
+            else:
+                debug_print(f"Cache is from before last market close, fetching fresh data...")
+                return None
         
-        debug_print("Cache expired, fetching fresh data...")
         return None
     except Exception as e:
         debug_print(f"Cache load error: {e}, fetching fresh data...")
