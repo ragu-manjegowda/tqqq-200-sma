@@ -26,7 +26,11 @@ INTERACTIVE_CHART_FILENAME = "data/tqqq_sma_chart.html"
 
 # ========== DATA FETCHING ==========
 HISTORY_YEARS = 3       # years of data to fetch for reliable SMA
+                        # Note: Actual fetch is 5 years (for chart) but signals use 3 years
+                        # This reduces API calls. If rate limiting occurs, the cache
+                        # file persists data between runs in GitHub Actions.
 # Cache expires after market close (4 PM ET / 9 PM UTC)
+# Cache file is reused in GitHub Actions to minimize Yahoo Finance API calls
 
 # ========== VISUALIZATION ==========
 # Whether to print ASCII chart of last 6 months with buy/sell levels

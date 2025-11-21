@@ -89,22 +89,28 @@ def save_cache(data):
         print(f"Cache save error: {e}")
 
 
-def fetch_data_with_retry(symbol, interval="1d", period="3y", retries=5, delay=2):
+def fetch_data_with_retry(symbol, interval="1d", period="3y", retries=3, initial_delay=2):
     """
-    Fetch data from yfinance with retries and basic fallback logic.
+    Fetch data from yfinance with retries and exponential backoff.
 
     Args:
         symbol: ticker symbol
         interval: data interval ("1d", "1h", "30m", etc.)
         period: time period ("3y", "1mo", etc.)
-        retries: number of retry attempts
-        delay: seconds to wait between retries
+        retries: number of retry attempts (reduced from 5 to 3)
+        initial_delay: initial seconds to wait between retries (exponential backoff)
 
     Returns:
         DataFrame: fetched data with standardized columns
     """
+    delay = initial_delay
+
     for attempt in range(1, retries + 1):
         try:
+            # Add a small delay before each request to avoid rate limiting
+            if attempt > 1:
+                time.sleep(delay)
+
             df = yf.download(
                 symbol,
                 period=period,
@@ -123,12 +129,22 @@ def fetch_data_with_retry(symbol, interval="1d", period="3y", retries=5, delay=2
                 df.index = pd.to_datetime(df.index)
                 return df
         except Exception as e:
-            print(f"[{symbol}] Fetch attempt {attempt}/{retries} failed: {e}")
+            error_str = str(e).lower()
 
-        time.sleep(delay)
-        print(f"[{symbol}] Retrying in {delay} seconds...")
+            # Detect rate limiting
+            if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+                print(f"[{symbol}] ⚠️  Rate limit detected on attempt {attempt}/{retries}")
+                # Use longer delay for rate limits
+                delay = min(delay * 3, 60)  # Cap at 60 seconds
+            else:
+                print(f"[{symbol}] Fetch attempt {attempt}/{retries} failed: {e}")
+                delay = min(delay * 2, 30)  # Exponential backoff, cap at 30 seconds
+
+            if attempt < retries:
+                print(f"[{symbol}] Retrying in {delay} seconds...")
 
     print(f"!!! ERROR: Unable to fetch data for {symbol} after {retries} attempts.")
+    print(f"           This may be due to rate limiting from GitHub Actions IP addresses.")
     return pd.DataFrame()  # return empty to catch downstream
 
 
@@ -155,19 +171,30 @@ def fetch_adj_close(symbol, years, use_cache=True):
         if cached_data and cache_key in cached_data:
             return cached_data[cache_key]
 
+    # Add delay between different symbol fetches to avoid rate limiting
+    # This gives Yahoo Finance a breather between requests
+    print(f"[{symbol}] Fetching {years} years of data...")
+    time.sleep(1)  # 1 second delay before fetching
+
     # Fetch fresh data
-    # first try daily data
-    df = fetch_data_with_retry(symbol, interval="1d", period=f"{years}y")
+    # first try daily data (most common)
+    df = fetch_data_with_retry(symbol, interval="1d", period=f"{years}y", retries=3)
     if df.empty:
         print(f"[{symbol}] Daily fetch failed. Trying 1h interval fallback...")
-        df = fetch_data_with_retry(symbol, interval="1h", period=f"{years}y")
+        time.sleep(2)  # Longer delay before fallback
+        df = fetch_data_with_retry(symbol, interval="1h", period=f"{years}y", retries=2)
 
     if df.empty:
         print(f"[{symbol}] 1h fallback failed. Trying 30m interval fallback...")
-        df = fetch_data_with_retry(symbol, interval="30m", period=f"{years}y")
+        time.sleep(2)  # Longer delay before fallback
+        df = fetch_data_with_retry(symbol, interval="30m", period=f"{years}y", retries=2)
 
     if df.empty:
-        raise RuntimeError(f"Failed to fetch any valid data for {symbol}")
+        raise RuntimeError(
+            f"Failed to fetch any valid data for {symbol}\n"
+            f"           Possible rate limiting from Yahoo Finance.\n"
+            f"           Try again in a few minutes or check if Yahoo Finance is accessible."
+        )
 
     df = df[["adj_close"]].copy()
 

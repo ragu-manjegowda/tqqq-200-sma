@@ -38,6 +38,29 @@ from .logger import append_signal_log, send_email
 
 def main():
     """Main entry point for the TQQQ SMA trading signal system."""
+    try:
+        _main_logic()
+    except Exception as e:
+        print("")
+        print("═" * 60)
+        print("  ❌ ERROR: Script execution failed")
+        print("═" * 60)
+        print(f"Error: {e}")
+        print("")
+        print("This may be due to:")
+        print("  - Network issues preventing data fetch")
+        print("  - Yahoo Finance API unavailable")
+        print("  - Insufficient historical data")
+        print("")
+        print("Please try again later or check the error message above.")
+        print("═" * 60)
+        # Return exit code 1 to indicate failure
+        import sys
+        sys.exit(1)
+
+
+def _main_logic():
+    """Main logic implementation."""
     # Ensure data directory exists
     os.makedirs(config.DATA_DIR, exist_ok=True)
 
@@ -70,17 +93,21 @@ def main():
 
     # Fetch data
     print("Fetching market data...")
-    qdf = fetch_adj_close(config.QQQ_SYMBOL, config.HISTORY_YEARS)
+    # Fetch 5 years of QQQ data (used for both signal and chart)
+    # This reduces API calls from 3 to 2 per run
+    qdf_5y = fetch_adj_close(config.QQQ_SYMBOL, 5)
+    qdf_5y['sma200'] = compute_sma(qdf_5y['adj_close'], config.SMA_PERIOD)
+
+    # Use the most recent N years for signal calculation
+    # (but we fetch 5 years to avoid duplicate API calls for the chart)
+    qdf = qdf_5y.copy()
+
+    # Fetch TQQQ data
     tqqq_df = fetch_adj_close(config.TQQQ_SYMBOL, config.HISTORY_YEARS)
 
-    # Compute SMA
-    qdf['sma200'] = compute_sma(qdf['adj_close'], config.SMA_PERIOD)
-
-    # Generate interactive chart if enabled (fetch 5 years of data)
+    # Generate interactive chart if enabled (reuse already-fetched 5y data)
     if config.GENERATE_INTERACTIVE_CHART:
         print("Generating interactive chart...")
-        qdf_5y = fetch_adj_close(config.QQQ_SYMBOL, 5)
-        qdf_5y['sma200'] = compute_sma(qdf_5y['adj_close'], config.SMA_PERIOD)
         generate_interactive_chart(qdf_5y)
 
     # Print ASCII chart if enabled

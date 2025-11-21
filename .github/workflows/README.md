@@ -9,7 +9,7 @@ This directory contains automated workflows for the TQQQ 200-Day SMA trading sys
 **Triggers**: On every push and pull request to main/master/develop branches
 
 **What it does**:
-- ✅ Runs all 72 unit tests
+- ✅ Runs all 83 unit tests (including output format validation)
 - ✅ Generates code coverage report
 - ✅ Uploads coverage artifacts
 - ✅ Displays test summary in GitHub UI
@@ -209,6 +209,57 @@ Each workflow run saves:
 **Retention**:
 - Daily signals: 90 days
 - Coverage reports: 30 days
+
+---
+
+## ⚠️ Error Handling
+
+### Script Errors
+
+If the script fails (e.g., network issues, Yahoo Finance API down):
+- ❌ Script exits with code 1
+- 📋 Workflow displays error message in summary
+- 📁 Error details saved to `signal_output.txt` artifact
+- 🔔 Workflow continues (doesn't fail unless BUY/SELL signal)
+
+The script has built-in error handling for:
+- Network failures
+- API unavailability
+- Insufficient historical data
+- Invalid data formats
+- **Rate limiting** from Yahoo Finance
+
+### Rate Limiting Protection
+
+GitHub Actions runs from cloud IPs that Yahoo Finance may rate-limit. We've implemented multiple protections:
+
+**Caching Strategy**:
+- 💾 **GitHub Actions Cache**: Persists `market_data_cache.pkl` between runs
+- ⏰ **Market-aware expiry**: Cache refreshes only after market close (4 PM ET)
+- 📉 **Reduced API calls**: Only 2 requests per run (QQQ 5y + TQQQ 3y)
+  - Previous: 3 requests (QQQ 3y, QQQ 5y, TQQQ 3y)
+
+**Rate Limit Handling**:
+- 🔄 **Exponential backoff**: Delays increase after failures (2s → 4s → 8s → ...)
+- ⏱️ **Request spacing**: 1-second delay between different symbol fetches
+- 🎯 **Rate limit detection**: Special handling for 429 errors
+- 🔁 **Reduced retries**: Only 3 attempts (down from 5) to avoid hammering API
+
+**If rate limited**:
+- First run of the day: May take longer due to fresh data fetch
+- Subsequent runs: Use cached data (no API calls needed)
+- Worst case: Script fails gracefully with clear error message
+
+### Graceful Degradation
+
+The workflow is designed to:
+1. **Always complete** (even if script fails)
+2. **Capture output** for debugging
+3. **Parse available data** from partial output
+4. **Display what it can** in the summary
+5. **Upload artifacts** for investigation
+
+This ensures you're always informed about what happened, even during errors.
 
 ---
 

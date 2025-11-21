@@ -522,6 +522,14 @@ The codebase is organized into focused, testable modules:
 
 ### Cleanup Scripts
 
+**Format code** (strip trailing whitespace):
+```bash
+uv run format
+```
+Cleans up whitespace in all project files:
+- **Python/YAML/TOML files**: Removes all trailing whitespace
+- **Markdown files**: Preserves trailing spaces (needed for line breaks), but removes spaces from empty lines
+
 **Remove build artifacts:**
 ```bash
 ./scripts/clean.sh
@@ -552,6 +560,7 @@ Removes: `__pycache__`, `*.egg-info`, `.coverage`, `.pytest_cache`, build artifa
 3. Check output, logs, and charts in `data/` directory
 4. Clear cache if needed: `./scripts/clean-cached-data.sh` or `rm data/market_data_cache.pkl`
 5. Run tests: `uv run pytest -v`
+6. Format code: `uv run format` (before committing)
 
 ### Customization Ideas
 - Change SMA period (e.g., 50-day, 100-day)
@@ -620,6 +629,8 @@ Feel free to fork and modify for your own use. Some ideas:
 
 ## 📚 Additional Resources
 
+- [GitHub Actions Workflows](.github/workflows/README.md) - CI/CD and daily signal automation
+- [Backtesting Results](backtesting/README.md) - Historical performance analysis
 - [Yahoo Finance API Documentation](https://python-yahoofinance.readthedocs.io/)
 - [Plotly Python Documentation](https://plotly.com/python/)
 - [Understanding Leveraged ETFs](https://www.investopedia.com/terms/l/leveraged-etf.asp)
@@ -634,6 +645,7 @@ Feel free to fork and modify for your own use. Some ideas:
 - Check internet connection
 - Yahoo Finance might be temporarily down
 - Try running again in a few minutes
+- **Rate limiting** (especially in GitHub Actions): Check workflow logs and artifacts for details
 
 ### Charts not updating
 - Delete cache file to force fresh data

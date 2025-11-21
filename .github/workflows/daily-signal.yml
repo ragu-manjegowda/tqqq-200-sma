@@ -32,12 +32,25 @@ jobs:
       run: |
         mkdir -p data
 
+    - name: Restore cached market data
+      uses: actions/cache@v4
+      with:
+        path: data/market_data_cache.pkl
+        key: market-data-${{ github.run_number }}
+        restore-keys: |
+          market-data-
+
     - name: Run TQQQ signal script
       id: signal
       continue-on-error: true
       run: |
+        set +e  # Don't exit on errors
+
         # Run the script and capture output
         uv run tqqq-sma > signal_output.txt 2>&1
+        SCRIPT_EXIT_CODE=$?
+
+        echo "Script exited with code: $SCRIPT_EXIT_CODE"
 
         # Display output for debugging
         echo "=== Script Output ==="
@@ -92,6 +105,9 @@ jobs:
           echo "alert_type=HOLD" >> $GITHUB_OUTPUT
           echo "is_alert=false" >> $GITHUB_OUTPUT
         fi
+
+        # Always exit with 0 - we handle failures in a separate step
+        exit 0
 
     - name: Generate Summary
       if: always()

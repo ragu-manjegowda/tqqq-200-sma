@@ -134,7 +134,7 @@ class TestYahooFinanceDataFetching:
         with patch('yfinance.download') as mock_download:
             mock_download.return_value = mock_data
 
-            result = data_fetcher.fetch_data_with_retry('TEST', interval='1d', period='3y', retries=1, delay=0)
+            result = data_fetcher.fetch_data_with_retry('TEST', interval='1d', period='3y', retries=1, initial_delay=0)
 
             # Verify result is properly formatted
             assert isinstance(result, pd.DataFrame)
@@ -148,7 +148,7 @@ class TestYahooFinanceDataFetching:
         with patch('yfinance.download') as mock_download:
             mock_download.return_value = pd.DataFrame()
 
-            result = data_fetcher.fetch_data_with_retry('INVALID', interval='1d', period='3y', retries=1, delay=0)
+            result = data_fetcher.fetch_data_with_retry('INVALID', interval='1d', period='3y', retries=1, initial_delay=0)
 
             # Should return empty DataFrame
             assert isinstance(result, pd.DataFrame)
@@ -160,7 +160,7 @@ class TestYahooFinanceDataFetching:
         with patch('yfinance.download') as mock_download:
             mock_download.side_effect = Exception("Network error")
 
-            result = data_fetcher.fetch_data_with_retry('TEST', interval='1d', period='3y', retries=2, delay=0)
+            result = data_fetcher.fetch_data_with_retry('TEST', interval='1d', period='3y', retries=2, initial_delay=0)
 
             # Should return empty DataFrame after retries
             assert isinstance(result, pd.DataFrame)
