@@ -186,7 +186,7 @@ Opens `tqqq_sma_chart.html` in your browser with 5 years of data:
 
 ## 📖 Configuration
 
-### User Settings (in `src/main.py`)
+### User Settings (in `src/config.py`)
 
 ```python
 # Trading symbols
@@ -292,21 +292,61 @@ Last Signal Date:        2025-11-20
 ────────────────────────────────────────────────────────────
 ```
 
-## 📁 Project Files
+## 📁 Project Structure
 
-### Source Files
-- `src/main.py` - Main script with trading logic and visualizations
-- `pyproject.toml` - Project configuration and dependencies
-- `uv.lock` - Dependency lock file
-- `README.md` - This file
-- `.gitignore` - Files to exclude from version control
+```
+tqqq-sma/
+├── src/                         # Source code (modular architecture)
+│   ├── __init__.py              # Package initialization
+│   ├── main.py                  # Main entry point & orchestration
+│   ├── config.py                # Configuration & constants
+│   ├── calculations.py          # SMA & percentage calculations
+│   ├── data_fetcher.py          # Yahoo Finance data fetching & caching
+│   ├── state_manager.py         # Position state management
+│   ├── charts.py                # ASCII & interactive chart generation
+│   └── logger.py                # CSV logging & email alerts
+├── tests/                       # Comprehensive test suite (72 tests)
+│   ├── __init__.py
+│   ├── conftest.py              # Pytest fixtures & shared utilities
+│   ├── test_calculations.py     # SMA & percentage tests
+│   ├── test_data_io.py          # Data fetching & CSV logging tests
+│   ├── test_signal_logic.py     # Trading signal logic tests
+│   ├── test_data_validation.py  # Edge cases & validation tests
+│   └── test_state_management.py # State & cache management tests
+├── scripts/                     # Utility scripts
+│   ├── clean.sh                 # Clean build artifacts
+│   └── clean-cached-data.sh     # Clean data/ folder
+├── data/                        # Generated files (gitignored)
+│   ├── position_state.json      # Current trading position
+│   ├── signals_log.csv          # Historical trade log
+│   ├── market_data_cache.pkl    # Cached market data
+│   └── tqqq_sma_chart.html      # Interactive chart
+├── pyproject.toml               # Project config & dependencies
+├── uv.lock                      # Dependency lock file
+├── README.md                    # Documentation (this file)
+└── .gitignore                   # Git exclusions
+```
 
-### Generated Files (in `data/` directory, not tracked in git)
-- `data/position_state.json` - Stores current position (CASH/TQQQ)
-- `data/signals_log.csv` - Historical log of all BUY/SELL signals
-- `data/market_data_cache.pkl` - Cached market data (24-hour expiry)
-- `data/tqqq_sma_chart.html` - Interactive chart (~5MB)
-- `.venv/` - Virtual environment
+### Key Files
+
+**Source Modules:**
+- `main.py` (265 lines) - Main orchestration and business logic
+- `config.py` (45 lines) - All user-configurable settings
+- `calculations.py` (64 lines) - Pure calculation functions
+- `data_fetcher.py` (194 lines) - Market data with retry & caching
+- `state_manager.py` (48 lines) - JSON state persistence
+- `charts.py` (380 lines) - ASCII & Plotly visualizations
+- `logger.py` (44 lines) - CSV logging & SMTP email alerts
+
+**Utility Scripts:**
+- `clean.sh` - Remove build artifacts (__pycache__, *.egg-info, .coverage, etc.)
+- `clean-cached-data.sh` - Delete data/ folder (with confirmation)
+
+**Generated Files** (in `data/`, not tracked in git):
+- `position_state.json` - Current position (CASH/TQQQ) and last signal date
+- `signals_log.csv` - Complete trade history with timestamps
+- `market_data_cache.pkl` - Cached Yahoo Finance data (~34KB)
+- `tqqq_sma_chart.html` - Interactive 5-year chart (~5MB)
 
 ## 🔧 Understanding the Output
 
@@ -407,7 +447,7 @@ This script is a mechanical signal generator for educational purposes. Important
 
 ### Running Tests
 
-The project includes a comprehensive test suite with 56 unit tests covering core functionality.
+The project includes a comprehensive test suite with **72 unit tests** covering core functionality.
 
 **Install test dependencies:**
 ```bash
@@ -443,40 +483,52 @@ uv run pytest tests/test_signal_logic.py::TestBuySignalLogic::test_buy_signal_tr
 
 The test suite includes:
 - ✅ **17 tests** for calculations (SMA, percentages, formatting)
+- ✅ **16 tests** for data I/O (Yahoo Finance fetching, CSV logging)
 - ✅ **16 tests** for data validation and edge cases
 - ✅ **15 tests** for signal logic (BUY/SELL conditions, thresholds)
 - ✅ **8 tests** for state and cache management
 
 **Test Categories:**
-- `test_calculations.py` - SMA computation, percentage calculations
-- `test_signal_logic.py` - Trading signal generation, state transitions
-- `test_data_validation.py` - Edge cases, real-world market scenarios
-- `test_state_management.py` - Position state, cache expiry
+- `test_calculations.py` - SMA computation, percentage calculations, formatting
+- `test_data_io.py` - Yahoo Finance data fetching, retry logic, CSV logging
+- `test_signal_logic.py` - Trading signal generation, state transitions, thresholds
+- `test_data_validation.py` - Edge cases, extreme values, real-world scenarios
+- `test_state_management.py` - Position state, market-aware cache expiry
 
 ## 🛠️ Development
 
-### Project Structure
+### Modular Architecture
+
+The codebase is organized into focused, testable modules:
+
+**Core Modules:**
+- **config.py** - Centralized configuration (symbols, thresholds, file paths)
+- **calculations.py** - Pure functions for SMA and percentage calculations
+- **data_fetcher.py** - Data acquisition with retry logic and market-aware caching
+- **state_manager.py** - Position state persistence (JSON)
+- **charts.py** - Visualization (ASCII terminal + Plotly interactive)
+- **logger.py** - Trade logging (CSV) and email notifications (SMTP)
+- **main.py** - Orchestration layer tying everything together
+
+**Benefits:**
+- ✅ Single Responsibility - Each module has one clear purpose
+- ✅ Easy Testing - Pure functions with minimal dependencies
+- ✅ Maintainability - Changes isolated to relevant modules
+- ✅ Reusability - Modules can be imported independently
+
+### Cleanup Scripts
+
+**Remove build artifacts:**
+```bash
+./scripts/clean.sh
 ```
-tqqq-sma/
-├── src/
-│   └── main.py                   # Main trading script
-├── tests/                        # Unit tests
-│   ├── __init__.py
-│   ├── conftest.py               # Pytest fixtures
-│   ├── test_calculations.py     # SMA, percentage tests
-│   ├── test_signal_logic.py     # Trading logic tests
-│   ├── test_data_validation.py  # Edge case tests
-│   └── test_state_management.py # State/cache tests
-├── data/                         # Generated files (gitignored)
-│   ├── position_state.json       # Runtime state
-│   ├── signals_log.csv           # Trade log
-│   ├── market_data_cache.pkl     # Data cache
-│   └── tqqq_sma_chart.html       # Interactive chart
-├── pyproject.toml                # Project config
-├── uv.lock                       # Dependency versions
-├── README.md                     # This file
-└── .gitignore                    # Git exclusions
+Removes: `__pycache__`, `*.egg-info`, `.coverage`, `.pytest_cache`, build artifacts
+
+**Clean cached data** (with confirmation):
+```bash
+./scripts/clean-cached-data.sh
 ```
+⚠️ Deletes: `data/` folder (market cache, position state, trade log, charts)
 
 ### Dependencies
 
@@ -491,10 +543,11 @@ tqqq-sma/
 - **pytest-mock** (>=3.12.0) - Mocking utilities
 
 ### Testing Changes
-1. Modify settings in `src/main.py`
+1. Modify settings in `src/config.py`
 2. Run: `uv run tqqq-sma`
 3. Check output, logs, and charts in `data/` directory
-4. Clear cache if needed: `rm data/market_data_cache.pkl`
+4. Clear cache if needed: `./scripts/clean-cached-data.sh` or `rm data/market_data_cache.pkl`
+5. Run tests: `uv run pytest -v`
 
 ### Customization Ideas
 - Change SMA period (e.g., 50-day, 100-day)
@@ -506,17 +559,25 @@ tqqq-sma/
 ## 🎨 Chart Customization
 
 ### ASCII Chart Options
-Located in `src/main.py`:
+Located in `src/config.py`:
 ```python
 PRINT_CHART = True          # Enable/disable ASCII chart
+```
+
+Customize dimensions in `src/charts.py`:
+```python
 plot_ascii_chart(data, width=60, height=20)  # Adjust dimensions
 ```
 
 ### Interactive Chart Options
+Located in `src/config.py`:
 ```python
 GENERATE_INTERACTIVE_CHART = True
-INTERACTIVE_CHART_FILENAME = "tqqq_sma_chart.html"
+INTERACTIVE_CHART_FILENAME = "data/tqqq_sma_chart.html"
+```
 
+Customize appearance in `src/charts.py`:
+```python
 # Inside generate_interactive_chart():
 height=700                  # Chart height in pixels
 template='plotly_white'     # Color theme
