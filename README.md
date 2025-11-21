@@ -1,3 +1,7 @@
+![Tests](https://github.com/ragu-manjegowda/tqqq-sma/workflows/Run%20Tests/badge.svg)
+![Daily Signal](https://github.com/ragu-manjegowda/tqqq-sma/workflows/Daily%20TQQQ%20Signal/badge.svg)
+
+
 # TQQQ 200-Day SMA Trading Signal
 
 A Python script that generates mechanical trading signals for TQQQ (3x leveraged Nasdaq ETF) based on QQQ's 200-day Simple Moving Average (SMA) with threshold-based entry and exit rules.

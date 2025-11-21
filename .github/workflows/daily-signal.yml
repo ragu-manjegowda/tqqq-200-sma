@@ -1,0 +1,202 @@
+name: Daily TQQQ Signal
+
+on:
+  schedule:
+    # Run at 9:10 PM UTC (4:10 PM ET) every weekday after market close
+    - cron: '10 21 * * 1-5'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  generate-signal:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    
+    - name: Install dependencies
+      run: |
+        uv sync
+    
+    - name: Create data directory
+      run: |
+        mkdir -p data
+    
+    - name: Run TQQQ signal script
+      id: signal
+      run: |
+        # Run the script and capture output
+        uv run tqqq-sma > signal_output.txt 2>&1 || true
+        
+        # Extract key information from output
+        SIGNAL=$(grep -E "(🟢 ALERT: BUY|🔴 ALERT: SELL|✅ STATUS: Holding|⚪ STATUS: Holding CASH)" signal_output.txt | head -1 || echo "No signal detected")
+        DATE=$(grep "^Date:" signal_output.txt | head -1 || echo "Date: Unknown")
+        QQQ_CLOSE=$(grep "^QQQ Close:" signal_output.txt | head -1 || echo "QQQ Close: Unknown")
+        TQQQ_CLOSE=$(grep "^TQQQ Close:" signal_output.txt | head -1 || echo "TQQQ Close: Unknown")
+        SMA200=$(grep "^SMA200:" signal_output.txt | head -1 || echo "SMA200: Unknown")
+        QQQ_VS_SMA=$(grep "^QQQ vs SMA200:" signal_output.txt | head -1 || echo "QQQ vs SMA200: Unknown")
+        BUY_THRESHOLD=$(grep "^BUY Threshold" signal_output.txt | head -1 || echo "BUY Threshold: Unknown")
+        SELL_THRESHOLD=$(grep "^SELL Threshold" signal_output.txt | head -1 || echo "SELL Threshold: Unknown")
+        POSITION=$(grep "^Position:" signal_output.txt | head -1 || echo "Position: Unknown")
+        
+        # Save to environment for later steps
+        echo "signal=$SIGNAL" >> $GITHUB_OUTPUT
+        echo "date=$DATE" >> $GITHUB_OUTPUT
+        echo "qqq_close=$QQQ_CLOSE" >> $GITHUB_OUTPUT
+        echo "tqqq_close=$TQQQ_CLOSE" >> $GITHUB_OUTPUT
+        echo "sma200=$SMA200" >> $GITHUB_OUTPUT
+        echo "qqq_vs_sma=$QQQ_VS_SMA" >> $GITHUB_OUTPUT
+        echo "buy_threshold=$BUY_THRESHOLD" >> $GITHUB_OUTPUT
+        echo "sell_threshold=$SELL_THRESHOLD" >> $GITHUB_OUTPUT
+        echo "position=$POSITION" >> $GITHUB_OUTPUT
+        
+        # Determine if this is a BUY or SELL alert (for notifications)
+        if echo "$SIGNAL" | grep -q "🟢 ALERT: BUY"; then
+          echo "alert_type=BUY" >> $GITHUB_OUTPUT
+          exit 1  # Exit with error to trigger notification
+        elif echo "$SIGNAL" | grep -q "🔴 ALERT: SELL"; then
+          echo "alert_type=SELL" >> $GITHUB_OUTPUT
+          exit 1  # Exit with error to trigger notification
+        else
+          echo "alert_type=HOLD" >> $GITHUB_OUTPUT
+          exit 0  # Normal exit for HOLD status
+        fi
+    
+    - name: Generate Summary
+      if: always()
+      run: |
+        echo "# 📊 TQQQ 200-Day SMA Daily Signal" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Market Data" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.date }}" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.qqq_close }}" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.tqqq_close }}" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.sma200 }}" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.qqq_vs_sma }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Trading Thresholds" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.buy_threshold }}" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.sell_threshold }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Current Signal" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.position }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Status" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.signal.outputs.signal }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add alert badge if BUY or SELL
+        if [ "${{ steps.signal.outputs.alert_type }}" = "BUY" ]; then
+          echo "## 🚨 TRADING ALERT: BUY SIGNAL DETECTED 🚨" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action Required**: Consider entering TQQQ position" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ steps.signal.outputs.alert_type }}" = "SELL" ]; then
+          echo "## 🚨 TRADING ALERT: SELL SIGNAL DETECTED 🚨" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action Required**: Consider exiting TQQQ position to cash" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "ℹ️ No action required - holding current position" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "_Automated signal generated at $(date -u +"%Y-%m-%d %H:%M:%S UTC")_" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Upload signal output
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: daily-signal-${{ github.run_number }}
+        path: |
+          signal_output.txt
+          data/signals_log.csv
+        retention-days: 90
+    
+    - name: Create Issue on BUY Signal
+      if: always() && steps.signal.outputs.alert_type == 'BUY'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const output = `## 🟢 BUY SIGNAL DETECTED
+          
+          ### Market Data
+          - ${{ steps.signal.outputs.date }}
+          - ${{ steps.signal.outputs.qqq_close }}
+          - ${{ steps.signal.outputs.tqqq_close }}
+          - ${{ steps.signal.outputs.sma200 }}
+          - ${{ steps.signal.outputs.qqq_vs_sma }}
+          
+          ### Thresholds
+          - ${{ steps.signal.outputs.buy_threshold }}
+          - ${{ steps.signal.outputs.sell_threshold }}
+          
+          ### Action Required
+          **BUY TQQQ** - QQQ has crossed above the 200-day SMA +5% threshold
+          
+          ### Current Position
+          ${{ steps.signal.outputs.position }}
+          
+          ---
+          _This is an automated alert from the TQQQ 200 SMA strategy._
+          _Generated: ${new Date().toISOString()}_
+          `;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🟢 TQQQ BUY SIGNAL - ' + new Date().toISOString().split('T')[0],
+            body: output,
+            labels: ['trading-signal', 'buy']
+          });
+    
+    - name: Create Issue on SELL Signal
+      if: always() && steps.signal.outputs.alert_type == 'SELL'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const output = `## 🔴 SELL SIGNAL DETECTED
+          
+          ### Market Data
+          - ${{ steps.signal.outputs.date }}
+          - ${{ steps.signal.outputs.qqq_close }}
+          - ${{ steps.signal.outputs.tqqq_close }}
+          - ${{ steps.signal.outputs.sma200 }}
+          - ${{ steps.signal.outputs.qqq_vs_sma }}
+          
+          ### Thresholds
+          - ${{ steps.signal.outputs.buy_threshold }}
+          - ${{ steps.signal.outputs.sell_threshold }}
+          
+          ### Action Required
+          **SELL TQQQ** - QQQ has crossed below the 200-day SMA -3% threshold
+          
+          ### Current Position
+          ${{ steps.signal.outputs.position }}
+          
+          ---
+          _This is an automated alert from the TQQQ 200 SMA strategy._
+          _Generated: ${new Date().toISOString()}_
+          `;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🔴 TQQQ SELL SIGNAL - ' + new Date().toISOString().split('T')[0],
+            body: output,
+            labels: ['trading-signal', 'sell']
+          });
+
