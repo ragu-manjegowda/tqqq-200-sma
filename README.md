@@ -15,10 +15,22 @@ A Python script that generates mechanical trading signals for TQQQ (3x leveraged
 
 ## 📊 Trading Algorithm
 
+### What is the 200-Day SMA?
+
+The **200-Day Simple Moving Average (SMA)** is a widely-watched technical indicator that:
+- Calculates the average closing price of QQQ over the last 200 trading days
+- Acts as a major support/resistance level
+- Represents approximately 9 months of trading data
+- Helps identify long-term market trends
+
+**Formula**: `(Sum of last 200 daily closing prices) / 200`
+
+The 200-day SMA is considered one of the most important technical indicators by institutional investors and is often used as a dividing line between bull and bear markets.
+
 ### Strategy Overview
 This is an **all-in/all-out** momentum strategy that:
 - Trades TQQQ (3x leveraged QQQ) based on QQQ's 200-day SMA
-- Uses asymmetric thresholds to reduce whipsaws
+- Uses asymmetric thresholds (+5%/-3%) to reduce whipsaws
 - Maintains state between runs to avoid duplicate signals
 
 ### Signal Rules
@@ -33,21 +45,31 @@ This is an **all-in/all-out** momentum strategy that:
 - Only when: Current position is TQQQ
 - Action: Exit to CASH
 
-**Why Asymmetric Thresholds?**
-- The 5% buy threshold reduces false entries during choppy markets
-- The 3% sell threshold provides earlier exits during downturns
-- Creates a buffer zone to avoid frequent whipsaws
+**Why Asymmetric Thresholds? (The 5/3 Strategy)**
+- **+5% Buy Threshold**: Waits for QQQ to be 5% above the 200-day SMA before entering
+  - Confirms strong upward momentum
+  - Reduces false entries during choppy/sideways markets
+  - Helps avoid getting whipsawed in volatile conditions
+- **-3% Sell Threshold**: Exits when QQQ drops to 3% below the 200-day SMA
+  - Provides earlier protection during downturns
+  - Asymmetric (tighter than entry) to preserve gains
+  - Allows some wiggle room without exiting on minor dips
+- **Buffer Zone**: Creates an 8% gap between entry and exit thresholds
+  - Prevents frequent trading from market noise
+  - Reduces transaction costs and slippage
+  - Maintains position through normal market fluctuations
 
 ### What the Script Does
-1. Checks cache for recent data (24-hour expiry)
-2. Fetches QQQ historical data from Yahoo Finance if needed
-3. Calculates the 200-day Simple Moving Average
-4. Generates interactive HTML chart with 5 years of data
-5. Displays ASCII chart in terminal for last 6 months
-6. Compares current QQQ price against thresholds
-7. Generates BUY/SELL signals based on your current position
-8. Logs all trades to `signals_log.csv`
-9. Maintains position state in `position_state.json`
+1. Creates `data/` directory if it doesn't exist
+2. Checks cache for recent data (24-hour expiry)
+3. Fetches QQQ historical data from Yahoo Finance if needed
+4. Calculates the 200-day Simple Moving Average
+5. Generates interactive HTML chart with 5 years of data
+6. Displays ASCII chart in terminal for last 6 months
+7. Compares current QQQ price against thresholds
+8. Generates BUY/SELL signals based on your current position
+9. Logs all trades to `data/signals_log.csv`
+10. Maintains position state in `data/position_state.json`
 
 ## 🚀 Project Setup
 
@@ -78,7 +100,7 @@ uv run tqqq-sma
 
 Or alternatively:
 ```bash
-uv run main.py
+uv run src/main.py
 ```
 
 ### When to Run
@@ -164,7 +186,7 @@ Opens `tqqq_sma_chart.html` in your browser with 5 years of data:
 
 ## 📖 Configuration
 
-### User Settings (in `main.py`)
+### User Settings (in `src/main.py`)
 
 ```python
 # Trading symbols
@@ -180,13 +202,13 @@ SELL_MULTIPLIER = 0.97     # -3% threshold
 MANUAL_POSITION = None     # None | "CASH" | "TQQQ"
 
 # Visualization options
-PRINT_CHART = True                        # ASCII chart (6 months)
-GENERATE_INTERACTIVE_CHART = True         # HTML chart (5 years)
-INTERACTIVE_CHART_FILENAME = "tqqq_sma_chart.html"
+PRINT_CHART = True                              # ASCII chart (6 months)
+GENERATE_INTERACTIVE_CHART = True               # HTML chart (5 years)
+INTERACTIVE_CHART_FILENAME = "data/tqqq_sma_chart.html"
 
 # Cache settings
-CACHE_FILE = "market_data_cache.pkl"
-CACHE_EXPIRY_HOURS = 24    # Refresh cache after 24 hours
+CACHE_FILE = "data/market_data_cache.pkl"
+CACHE_EXPIRY_HOURS = 24                         # Refresh cache after 24 hours
 
 # Data settings
 HISTORY_YEARS = 3          # Years of data for signal generation
@@ -273,17 +295,17 @@ Last Signal Date:        2025-11-20
 ## 📁 Project Files
 
 ### Source Files
-- `main.py` - Main script with trading logic and visualizations
+- `src/main.py` - Main script with trading logic and visualizations
 - `pyproject.toml` - Project configuration and dependencies
 - `uv.lock` - Dependency lock file
 - `README.md` - This file
 - `.gitignore` - Files to exclude from version control
 
-### Generated Files (Not tracked in git)
-- `position_state.json` - Stores current position (CASH/TQQQ)
-- `signals_log.csv` - Historical log of all BUY/SELL signals
-- `market_data_cache.pkl` - Cached market data (24-hour expiry)
-- `tqqq_sma_chart.html` - Interactive chart (~5MB)
+### Generated Files (in `data/` directory, not tracked in git)
+- `data/position_state.json` - Stores current position (CASH/TQQQ)
+- `data/signals_log.csv` - Historical log of all BUY/SELL signals
+- `data/market_data_cache.pkl` - Cached market data (24-hour expiry)
+- `data/tqqq_sma_chart.html` - Interactive chart (~5MB)
 - `.venv/` - Virtual environment
 
 ## 🔧 Understanding the Output
@@ -338,10 +360,10 @@ Fetching market data...          ← Cache expired or missing
 ```
 
 ### Cache Management
-- **Location**: `market_data_cache.pkl`
+- **Location**: `data/market_data_cache.pkl`
 - **Size**: ~34KB (compressed)
 - **Expiry**: 24 hours (configurable)
-- **Clear cache**: Delete `market_data_cache.pkl` to force refresh
+- **Clear cache**: Delete `data/market_data_cache.pkl` to force refresh
 
 ## ⚠️ Risk Disclaimer
 
@@ -367,15 +389,24 @@ This script is a mechanical signal generator for educational purposes. Important
 ### Project Structure
 ```
 tqqq-sma/
-├── main.py                   # Main trading script
-├── pyproject.toml            # Project config
-├── uv.lock                   # Dependency versions
-├── README.md                 # This file
-├── .gitignore                # Git exclusions
-├── position_state.json       # Runtime state (generated)
-├── signals_log.csv           # Trade log (generated)
-├── market_data_cache.pkl     # Data cache (generated)
-└── tqqq_sma_chart.html       # Interactive chart (generated)
+├── src/
+│   └── main.py                   # Main trading script
+├── tests/                        # Unit tests
+│   ├── __init__.py
+│   ├── conftest.py               # Pytest fixtures
+│   ├── test_calculations.py     # SMA, percentage tests
+│   ├── test_signal_logic.py     # Trading logic tests
+│   ├── test_data_validation.py  # Edge case tests
+│   └── test_state_management.py # State/cache tests
+├── data/                         # Generated files (gitignored)
+│   ├── position_state.json       # Runtime state
+│   ├── signals_log.csv           # Trade log
+│   ├── market_data_cache.pkl     # Data cache
+│   └── tqqq_sma_chart.html       # Interactive chart
+├── pyproject.toml                # Project config
+├── uv.lock                       # Dependency versions
+├── README.md                     # This file
+└── .gitignore                    # Git exclusions
 ```
 
 ### Dependencies
@@ -384,10 +415,10 @@ tqqq-sma/
 - **plotly** (>=5.24.1) - Interactive chart generation
 
 ### Testing Changes
-1. Modify settings in `main.py`
+1. Modify settings in `src/main.py`
 2. Run: `uv run tqqq-sma`
-3. Check output, logs, and charts
-4. Clear cache if needed: `rm market_data_cache.pkl`
+3. Check output, logs, and charts in `data/` directory
+4. Clear cache if needed: `rm data/market_data_cache.pkl`
 
 ### Customization Ideas
 - Change SMA period (e.g., 50-day, 100-day)
@@ -399,7 +430,7 @@ tqqq-sma/
 ## 🎨 Chart Customization
 
 ### ASCII Chart Options
-Located in `main.py`:
+Located in `src/main.py`:
 ```python
 PRINT_CHART = True          # Enable/disable ASCII chart
 plot_ascii_chart(data, width=60, height=20)  # Adjust dimensions
@@ -423,6 +454,13 @@ Available themes: `plotly`, `plotly_white`, `plotly_dark`, `ggplot2`, `seaborn`,
 2. **Disable charts**: Set `PRINT_CHART = False` and `GENERATE_INTERACTIVE_CHART = False` for fastest runs
 3. **Reduce history**: Lower `HISTORY_YEARS` if you only need recent signals (minimum 1 year for reliable SMA200)
 4. **Cron automation**: Run once per day after market close to minimize API usage
+
+## 🙏 Credits
+
+This strategy is based on the TQQQ 200 SMA +5/-3 strategy discussed in the r/LETFs community:
+- **Original Strategy Discussion**: [TQQQ 200SMA 5/3 Strategy Follow-up](https://www.reddit.com/r/LETFs/comments/1mc1mvs/tqqq_200sma_53_strategy_follow_up_with_additional/)
+
+Special thanks to the r/LETFs community for sharing research and insights on leveraged ETF strategies.
 
 ## 📝 License
 
@@ -449,7 +487,7 @@ Feel free to fork and modify for your own use. Some ideas:
 ## 🐛 Troubleshooting
 
 ### "Cache load error"
-- Delete `market_data_cache.pkl` and run again
+- Delete `data/market_data_cache.pkl` and run again
 
 ### "Failed to fetch data"
 - Check internet connection

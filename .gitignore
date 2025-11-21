@@ -1,18 +1,21 @@
-# Python-generated files
+# Python cache and compiled files
 __pycache__/
 *.py[oc]
+*.pyo
+*.pyd
+.Python
+
+# Build artifacts
 build/
 dist/
 wheels/
 *.egg-info
+*.egg
 
 # Virtual environments
 .venv
+venv/
+ENV/
 
-# Runtime data files (user-specific)
-position_state.json
-signals_log.csv
-
-# Cache files
-market_data_cache.pkl
-*.html
+# Runtime data directory (all generated files)
+data/

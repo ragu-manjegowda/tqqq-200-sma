@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-tqqq-sma = "main:main"
+tqqq-sma = "src.main:main"
 
 [tool.uv]
 package = true

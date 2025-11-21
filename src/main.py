@@ -49,10 +49,10 @@ SELL_MULTIPLIER = 0.97  # -3% vs sma200
 #          If you want to use the saved state, set MANUAL_POSITION = None
 MANUAL_POSITION = None
 
-STATE_FILE = "position_state.json"
-SIGNAL_LOG_CSV = "signals_log.csv"
+STATE_FILE = "data/position_state.json"
+SIGNAL_LOG_CSV = "data/signals_log.csv"
 HISTORY_YEARS = 3       # years of data to fetch for reliable SMA
-CACHE_FILE = "market_data_cache.pkl"
+CACHE_FILE = "data/market_data_cache.pkl"
 CACHE_EXPIRY_HOURS = 24  # Refresh cache after 24 hours
 
 # Whether to print ASCII chart of last 6 months with buy/sell levels
@@ -60,7 +60,7 @@ PRINT_CHART = True
 
 # Whether to generate interactive HTML chart (5 years of data)
 GENERATE_INTERACTIVE_CHART = True
-INTERACTIVE_CHART_FILENAME = "tqqq_sma_chart.html"
+INTERACTIVE_CHART_FILENAME = "data/tqqq_sma_chart.html"
 
 # Optional email alert config -- set enabled=True and fill your SMTP values if you want emails
 EMAIL_ALERT = {
@@ -611,6 +611,9 @@ def generate_interactive_chart(df, filename=INTERACTIVE_CHART_FILENAME):
 
 # ---------- main ----------
 def main():
+    # Ensure data directory exists
+    os.makedirs("data", exist_ok=True)
+    
     debug_print("")
     debug_print("═" * 60)
     debug_print("  TQQQ 200-Day SMA Trading Signal")
@@ -800,6 +803,10 @@ def main():
             debug_print(f"   Email alert sent")
 
     debug_print("")
+    debug_print("─" * 60)
+    debug_print("📊 Interactive Chart: Open data/tqqq_sma_chart.html in your browser")
+    debug_print("   to explore 5 years of historical data with 200-day SMA,")
+    debug_print("   buy/sell thresholds, zoom, hover tooltips, and more!")
     debug_print("─" * 60)
 
 if __name__ == "__main__":
