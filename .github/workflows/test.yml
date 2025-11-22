@@ -7,45 +7,177 @@ on:
     branches: [ main, master, develop ]
 
 jobs:
-  test:
+  # Job 1: Calculations Tests
+  test-calculations:
+    name: 🧮 Calculations
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
-
     - name: Install uv
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
     - name: Install dependencies
-      run: |
-        uv sync --extra dev
+      run: uv sync --extra dev
+    - name: Run calculations tests
+      run: uv run pytest tests/test_calculations.py -v
 
-    - name: Run tests
+  # Job 2: Data I/O Tests
+  test-data-io:
+    name: 💾 Data I/O
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
       run: |
-        uv run pytest -v --cov=src --cov-report=term --cov-report=html
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run data I/O tests
+      run: uv run pytest tests/test_data_io.py -v
 
+  # Job 3: Data Validation Tests
+  test-data-validation:
+    name: ✅ Data Validation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run data validation tests
+      run: uv run pytest tests/test_data_validation.py -v
+
+  # Job 4: Signal Logic Tests
+  test-signal-logic:
+    name: 📊 Signal Logic
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run signal logic tests
+      run: uv run pytest tests/test_signal_logic.py -v
+
+  # Job 5: State Management Tests
+  test-state-management:
+    name: 💼 State Management
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run state management tests
+      run: uv run pytest tests/test_state_management.py -v
+
+  # Job 6: Output Format Tests
+  test-output-format:
+    name: 📝 Output Format
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run output format tests
+      run: uv run pytest tests/test_output_format.py -v
+
+  # Job 7: Formatting Tests
+  test-formatting:
+    name: 🎨 Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run formatting tests
+      run: uv run pytest tests/test_formatting.py -v
+
+  # Job 8: Yahoo Finance API Tests
+  test-yfinance-api:
+    name: 🌐 Yahoo Finance API
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run Yahoo Finance API tests
+      run: uv run pytest tests/test_yfinance_api.py -v
+
+  # Final job: Collect results and generate coverage
+  coverage:
+    name: 📊 Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test-calculations, test-data-io, test-data-validation, test-signal-logic, test-state-management, test-output-format, test-formatting, test-yfinance-api]
+    if: always()
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install dependencies
+      run: uv sync --extra dev
+    - name: Run all tests with coverage
+      run: uv run pytest -v --cov=src --cov-report=term --cov-report=html
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
-      if: always()
       with:
         name: coverage-report
         path: htmlcov/
         retention-days: 30
-
     - name: Test Summary
-      if: always()
       run: |
-        echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
+        echo "## 🧪 Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "✅ Tests completed successfully!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "See artifacts for detailed coverage report." >> $GITHUB_STEP_SUMMARY
-
+        echo "All test suites completed! See artifacts for detailed coverage report." >> $GITHUB_STEP_SUMMARY
