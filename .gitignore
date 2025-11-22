@@ -26,5 +26,7 @@ coverage.xml
 *.cover
 .hypothesis/
 
-# Runtime data directory (all generated files)
-data/
+# Runtime data directory
+# Commit shared files (cache, chart, CI position state)
+# Exclude user-specific logs only
+data/signals_log.csv

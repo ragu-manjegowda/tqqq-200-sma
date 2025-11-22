@@ -179,26 +179,31 @@ class TestOutputFormat:
         )
 
         output = result.stdout + result.stderr
-        lines = output.split('\n')
 
-        # Simulate grep commands from workflow
-        def grep_pattern(pattern, lines):
-            """Simulate grep with pattern."""
-            for line in lines:
+        # Simulate the EXACT workflow parsing logic using awk-style field extraction
+        def extract_field(pattern, field_num):
+            """Extract specific field from line matching pattern (simulates grep | awk)."""
+            for line in output.split('\n'):
                 if re.search(pattern, line):
-                    return line.strip()
+                    fields = line.split()
+                    if len(fields) >= field_num:
+                        return fields[field_num - 1]  # awk uses 1-based indexing
             return None
 
-        # Extract using workflow patterns
-        signal = grep_pattern(r'(ALERT: BUY|ALERT: SELL|STATUS: Holding)', lines)
-        date = grep_pattern(r'Date:', lines)
-        qqq_close = grep_pattern(r'QQQ Close:', lines)
-        tqqq_close = grep_pattern(r'TQQQ Close:', lines)
-        sma200 = grep_pattern(r'SMA200:', lines)
-        qqq_vs_sma = grep_pattern(r'QQQ vs SMA200:', lines)
-        buy_threshold = grep_pattern(r'BUY Threshold', lines)
-        sell_threshold = grep_pattern(r'SELL Threshold', lines)
-        position = grep_pattern(r'Position:', lines)
+        # Extract using workflow patterns (matching .github/workflows/daily-signal.yml)
+        signal = None
+        for line in output.split('\n'):
+            if re.search(r'(ALERT: BUY|ALERT: SELL|STATUS: Holding)', line):
+                signal = line.strip()
+
+        date = extract_field(r'Date:', 2)  # awk '{print $2}'
+        qqq_close = extract_field(r'QQQ Close:', 3)  # awk '{print $3}'
+        tqqq_close = extract_field(r'TQQQ Close:', 3)  # awk '{print $3}'
+        sma200 = extract_field(r'SMA200:', 2)  # awk '{print $2}' (for line without "vs")
+        qqq_vs_sma = extract_field(r'QQQ vs SMA200:', 4)  # awk '{print $4}'
+        buy_threshold = extract_field(r'BUY Threshold', 4)  # awk '{print $4}'
+        sell_threshold = extract_field(r'SELL Threshold', 4)  # awk '{print $4}'
+        position = extract_field(r'Position:', 2)  # awk '{print $2}'
 
         # All fields should be extracted successfully
         assert signal is not None, "Failed to extract signal"
@@ -211,16 +216,40 @@ class TestOutputFormat:
         assert sell_threshold is not None, "Failed to extract sell threshold"
         assert position is not None, "Failed to extract position"
 
-        # Verify none are empty strings
-        assert len(signal) > 0, "Signal is empty"
-        assert len(date) > 0, "Date is empty"
-        assert len(qqq_close) > 0, "QQQ close is empty"
-        assert len(tqqq_close) > 0, "TQQQ close is empty"
-        assert len(sma200) > 0, "SMA200 is empty"
-        assert len(qqq_vs_sma) > 0, "QQQ vs SMA is empty"
-        assert len(buy_threshold) > 0, "Buy threshold is empty"
-        assert len(sell_threshold) > 0, "Sell threshold is empty"
-        assert len(position) > 0, "Position is empty"
+        # Verify we extracted ONLY VALUES, not labels
+        assert not date.endswith(':'), f"Date should be just value, got: {date}"
+        assert date.count('-') == 2, f"Date should be YYYY-MM-DD format, got: {date}"
+
+        assert qqq_close.startswith('$'), f"QQQ close should start with $, got: {qqq_close}"
+        assert not qqq_close.startswith('QQQ'), f"QQQ close should be just value, got: {qqq_close}"
+
+        assert tqqq_close.startswith('$'), f"TQQQ close should start with $, got: {tqqq_close}"
+        assert not tqqq_close.startswith('TQQQ'), f"TQQQ close should be just value, got: {tqqq_close}"
+
+        assert sma200.startswith('$'), f"SMA200 should start with $, got: {sma200}"
+
+        assert '%' in qqq_vs_sma, f"QQQ vs SMA should have %, got: {qqq_vs_sma}"
+        assert not qqq_vs_sma.startswith('QQQ'), f"QQQ vs SMA should be just value, got: {qqq_vs_sma}"
+
+        assert buy_threshold.startswith('$'), f"Buy threshold should start with $, got: {buy_threshold}"
+        assert sell_threshold.startswith('$'), f"Sell threshold should start with $, got: {sell_threshold}"
+
+        assert position in ['CASH', 'TQQQ'], f"Position should be CASH or TQQQ, got: {position}"
+
+        # Verify values can be parsed as expected types
+        # Date should be parseable
+        from datetime import datetime
+        datetime.strptime(date, '%Y-%m-%d')
+
+        # Prices should be parseable (remove $ and ,)
+        float(qqq_close.replace('$', '').replace(',', ''))
+        float(tqqq_close.replace('$', '').replace(',', ''))
+        float(sma200.replace('$', '').replace(',', ''))
+        float(buy_threshold.replace('$', '').replace(',', ''))
+        float(sell_threshold.replace('$', '').replace(',', ''))
+
+        # Percentage should be parseable
+        float(qqq_vs_sma.replace('%', '').replace('+', ''))
 
 
 class TestWorkflowCompatibility:

@@ -1,5 +1,8 @@
-![Tests](https://github.com/ragu-manjegowda/tqqq-sma/workflows/Run%20Tests/badge.svg)
-![Daily Signal](https://github.com/ragu-manjegowda/tqqq-sma/workflows/Daily%20TQQQ%20Signal/badge.svg)
+![Tests](https://github.com/ragu-manjegowda/tqqq-200-sma/workflows/Run%20Tests/badge.svg)
+![Daily Signal](https://github.com/ragu-manjegowda/tqqq-200-sma/workflows/Daily%20TQQQ%20Signal/badge.svg)
+![Last Updated](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/ragu-manjegowda/tqqq-200-sma/main/.github/last_updated.json&label=Last%20Updated&query=$.date&color=blue)
+
+> 💡 **Tip**: If the "Last Updated" badge shows an old date, the workflow may be failing. Check the [Actions](../../actions) tab for details.
 
 
 # TQQQ 200-Day SMA Trading Signal
@@ -219,6 +222,18 @@ SELL_MULTIPLIER = 0.97     # -3% threshold
 
 # Manual position override
 MANUAL_POSITION = None     # None | "CASH" | "TQQQ"
+```
+
+**About MANUAL_POSITION**:
+- Set to `None` to use saved state from `position_state.json`
+- Set to `"CASH"` if you manually sold TQQQ (overrides saved state)
+- Set to `"TQQQ"` if you manually bought TQQQ (overrides saved state)
+
+**CI vs. Local Position**:
+- `position_state.json` is committed to git to track **CI's position** (prevents duplicate signals)
+- Your local position may differ from CI's position
+- Use `MANUAL_POSITION` to sync your local state with your actual holdings
+- CI ignores `MANUAL_POSITION` (always uses committed state)
 
 # Visualization options
 PRINT_CHART = True                              # ASCII chart (6 months)
@@ -402,6 +417,71 @@ timestamp_utc,action,position_from,position_to,date,qqq_close,sma200,pct_vs_sma,
 ```
 
 ## 💾 Data Caching
+
+### Local Caching
+Market data is cached locally in `data/market_data_cache.pkl` to:
+- Speed up subsequent runs (instant vs 3-5 seconds)
+- Reduce API calls to Yahoo Finance
+- Avoid rate limiting issues
+
+**Cache behavior**:
+- Automatically expires after last market close (4 PM ET / 9 PM UTC)
+- Refreshes when running after market hours
+- Cached for 24 hours on weekdays
+- Weekend cache uses Friday's data
+
+### Git-Tracked Cache
+The cache file is **committed to git** along with the interactive chart and **CI position state**:
+
+**Committed files** (shared for tracking):
+- `data/market_data_cache.pkl` - Historical market data (34 KB)
+- `data/tqqq_sma_chart.html` - Interactive chart (4.9 MB)
+- `data/position_state.json` - **CI position tracking** (109 B)
+  - Tracks whether CI is in CASH or TQQQ position
+  - Prevents duplicate signals in GitHub Actions
+  - Users can override locally with `MANUAL_POSITION` setting
+
+**Ignored files** (user-specific):
+- `data/signals_log.csv` - Your trade history log
+
+**Why commit position_state.json?**
+- ✅ GitHub Actions needs to track position between runs
+- ✅ Prevents duplicate BUY/SELL signals from CI
+- ✅ Provides transparency (everyone sees CI's current position)
+- ⚠️ Your local position may differ from CI (use `MANUAL_POSITION` to sync)
+
+**Benefits**:
+- ✅ GitHub Actions uses cached data (0 API calls if fresh)
+- ✅ Faster workflow execution
+- ✅ Reduced Yahoo Finance API load
+- ✅ Instant chart viewing without running script
+- ✅ Cache auto-updates daily via workflow
+
+**How it works**:
+1. Daily workflow runs after market close
+2. Fetches fresh data if cache is stale
+3. Commits updated cache and chart to repo (with `[skip ci]`)
+4. Next runs use the committed cache
+
+### Manual Cache Management
+
+**View cache age**:
+```bash
+ls -lh data/market_data_cache.pkl
+```
+
+**Force refresh**:
+```bash
+rm data/market_data_cache.pkl
+uv run tqqq-sma  # Fetches fresh data
+```
+
+**Clear all cached data**:
+```bash
+uv run clean-data
+```
+
+> **Note**: When you `git pull`, you'll automatically get the latest cache and chart from the workflow! 🚀
 
 The script uses **market-close-based caching** to ensure you always get the latest closing prices:
 

@@ -23,5 +23,13 @@ format = "scripts.format:main"
 clean = "scripts.clean:main"
 clean-data = "scripts.clean_data:main"
 
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "scripts*"]
+
 [tool.uv]
 package = true

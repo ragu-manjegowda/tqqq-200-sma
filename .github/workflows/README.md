@@ -14,6 +14,8 @@ This directory contains automated workflows for the TQQQ 200-Day SMA trading sys
 - ✅ Uploads coverage artifacts
 - ✅ Displays test summary in GitHub UI
 
+**Permissions needed**: None (read-only)
+
 **Status Badge**:
 ```markdown
 ![Tests](https://github.com/YOUR_USERNAME/tqqq-sma/workflows/Run%20Tests/badge.svg)
@@ -27,13 +29,68 @@ This directory contains automated workflows for the TQQQ 200-Day SMA trading sys
 - 🕐 Automatically at **9:10 PM UTC** (4:10 PM ET) every weekday
 - 🔘 Manually via "Run workflow" button
 
+**Permissions needed**: 
+- ✅ `contents: write` - Push commits back to repo
+- ✅ `issues: write` - Create GitHub issues on signals
+
+⚠️ **IMPORTANT**: You must enable write permissions in repository settings!
+See [ACTIONS_SETUP.md](../ACTIONS_SETUP.md) for configuration instructions.
+
 **What it does**:
+- 🔍 **Tests Yahoo Finance API** (smoke test with real API call)
 - 📊 Fetches latest market data from Yahoo Finance
 - 🧮 Calculates 200-day SMA and trading signals
 - 📈 Displays current signal in GitHub Actions summary
 - 🚨 **Creates GitHub Issue** on BUY/SELL signals
 - 📧 **Sends GitHub notification** on BUY/SELL alerts
+- 💾 **Conditionally commits updates** (only on scheduled runs with fresh data)
+- 📅 **Updates "Last Updated" badge** (scheduled runs only)
 - 💾 Uploads signal output and trade log as artifacts
+
+**Commit Conditions** (all must be true):
+- ✅ Workflow succeeded (no errors)
+- ✅ Fresh data fetched from Yahoo Finance (not using cache)
+- ✅ Scheduled run (not manual trigger)
+
+**Manual runs**:
+- ℹ️ Generate summary and artifacts
+- ℹ️ Do NOT commit to repository
+- ℹ️ Useful for testing without polluting git history
+
+**Failure Handling**:
+- 🔍 **API Check First**: Tests Yahoo Finance availability before main script
+- ❌ **Fails early** if API is unreachable (saves time)
+- ❌ **Fails immediately** if data fetch fails (market holiday, API error, network issues)
+- 🚫 **Skips summary and commit** on failure
+- 📛 **Badge shows last successful update** (helps detect stale data)
+- 📁 **Artifacts still uploaded** for debugging
+
+### API Health Check
+
+**Before running the main script**, the workflow tests Yahoo Finance API AND pre-fetches all data:
+
+```python
+# Fetches ALL data needed by main script:
+- QQQ 3 years (for signal calculation)
+- TQQQ 3 years (for signal calculation)  
+- QQQ 5 years (for interactive chart)
+
+# Saves everything to cache
+# Main script uses cached data (0 additional API calls!)
+```
+
+**Benefits**:
+- 🚀 **Fast failure** if API is down (within seconds)
+- ⚡ **Zero duplicate API calls** (main script uses pre-fetched cache)
+- 💰 **Bandwidth savings** (only fetch once)
+- 🔍 **Clear diagnosis** of API issues vs script issues
+
+**If API test fails**:
+- ❌ Workflow stops immediately
+- 🛑 Main script doesn't run
+- 📋 Clear error message shown
+- ⏱️ Saves workflow time
+- 💸 Saves API quota
 
 **How notifications work**:
 - **HOLD status**: Workflow succeeds ✅ (no notification)
@@ -106,10 +163,16 @@ To run the signal check manually:
 4. Select branch (usually `main`)
 5. Click green **Run workflow** button
 
+**Important**:
+- ✅ Manual runs generate summary and artifacts
+- ❌ Manual runs do NOT commit to repository
+- ℹ️ Useful for testing without polluting git history
+- ℹ️ Badge will not update on manual runs
+
 This is useful for:
-- Testing the workflow
+- Testing the workflow after changes
 - Checking signal outside market hours
-- Verifying setup after changes
+- Debugging without affecting the repo
 
 ---
 
@@ -234,10 +297,12 @@ The script has built-in error handling for:
 GitHub Actions runs from cloud IPs that Yahoo Finance may rate-limit. We've implemented multiple protections:
 
 **Caching Strategy**:
-- 💾 **GitHub Actions Cache**: Persists `market_data_cache.pkl` between runs
+- 💾 **Git-Tracked Cache**: Cache file (`data/market_data_cache.pkl`) is committed to the repo
+- 🔄 **Auto-Update**: Workflow commits fresh cache after each run (with `[skip ci]`)
 - ⏰ **Market-aware expiry**: Cache refreshes only after market close (4 PM ET)
-- 📉 **Reduced API calls**: Only 2 requests per run (QQQ 5y + TQQQ 3y)
-  - Previous: 3 requests (QQQ 3y, QQQ 5y, TQQQ 3y)
+- 📉 **Reduced API calls**: Only 2 requests per run when cache is stale (QQQ 5y + TQQQ 3y)
+  - Fresh cache: **0 API calls!** (uses committed cache)
+  - Stale cache: 2 API calls (then commits updated cache)
 
 **Rate Limit Handling**:
 - 🔄 **Exponential backoff**: Delays increase after failures (2s → 4s → 8s → ...)
@@ -288,6 +353,12 @@ This ensures you're always informed about what happened, even during errors.
 2. Download `signal_output.txt` artifact
 3. Check if market data fetched successfully
 4. Verify Yahoo Finance API is accessible
+5. **Check "Last Updated" badge** - if date is old, workflow is failing
+6. Look for error messages indicating:
+   - Market holiday (no trading)
+   - Yahoo Finance API error
+   - Network issues
+   - Rate limiting
 
 ### Manual Run Not Working
 

@@ -6,6 +6,11 @@ on:
     - cron: '10 21 * * 1-5'
   workflow_dispatch:  # Allow manual trigger
 
+# Required permissions for pushing commits
+permissions:
+  contents: write  # Allow writing to repository
+  issues: write    # Allow creating issues on signals
+
 jobs:
   generate-signal:
     runs-on: ubuntu-latest
@@ -13,6 +18,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}  # Use GitHub token for push access
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -32,20 +39,15 @@ jobs:
       run: |
         mkdir -p data
 
-    - name: Restore cached market data
-      uses: actions/cache@v4
-      with:
-        path: data/market_data_cache.pkl
-        key: market-data-${{ github.run_number }}
-        restore-keys: |
-          market-data-
+    - name: Test Yahoo Finance API
+      run: |
+        echo "Testing Yahoo Finance API accessibility..."
+        uv run python tests/test_yfinance_api.py
 
     - name: Run TQQQ signal script
       id: signal
-      continue-on-error: true
+      continue-on-error: false  # Fail immediately if script fails
       run: |
-        set +e  # Don't exit on errors
-
         # Run the script and capture output
         uv run tqqq-sma > signal_output.txt 2>&1
         SCRIPT_EXIT_CODE=$?
@@ -57,29 +59,68 @@ jobs:
         cat signal_output.txt
         echo "=== End Output ==="
 
-        # Extract key information from output with more flexible patterns
+        # If script failed, exit workflow immediately (no summary, no parsing)
+        if [ $SCRIPT_EXIT_CODE -ne 0 ]; then
+          echo "❌ Script failed to fetch data or encountered an error"
+          echo "   This could be due to:"
+          echo "   - Market holiday (no trading data)"
+          echo "   - Yahoo Finance API error"
+          echo "   - Network issues"
+          echo "   - Rate limiting"
+          echo ""
+          echo "Workflow will fail without updating summary or committing data."
+          exit 1
+        fi
+
+        # Check if fresh data was fetched (not from cache)
+        if grep -q "Using cached data" signal_output.txt; then
+          echo "should_commit=false" >> $GITHUB_OUTPUT
+          echo "ℹ️  Using cached data - no commit needed"
+        else
+          echo "should_commit=true" >> $GITHUB_OUTPUT
+          echo "✅ Fresh data fetched - will commit updates"
+        fi
+
+        # Script succeeded - parse output for summary
+        # Extract key information from output - ONLY THE VALUES
         SIGNAL=$(grep -E "(ALERT: BUY|ALERT: SELL|STATUS: Holding)" signal_output.txt | tail -1 || echo "No signal detected")
-        DATE=$(grep "Date:" signal_output.txt | grep -v "Last Signal" | head -1 | sed 's/^[[:space:]]*//' || echo "Date: Unknown")
-        QQQ_CLOSE=$(grep "QQQ Close:" signal_output.txt | head -1 | sed 's/^[[:space:]]*//' || echo "QQQ Close: Unknown")
-        TQQQ_CLOSE=$(grep "TQQQ Close:" signal_output.txt | head -1 | sed 's/^[[:space:]]*//' || echo "TQQQ Close: Unknown")
-        SMA200=$(grep "SMA200:" signal_output.txt | grep -v "QQQ vs" | head -1 | sed 's/^[[:space:]]*//' || echo "SMA200: Unknown")
-        QQQ_VS_SMA=$(grep "QQQ vs SMA200:" signal_output.txt | head -1 | sed 's/^[[:space:]]*//' || echo "QQQ vs SMA200: Unknown")
-        BUY_THRESHOLD=$(grep "BUY Threshold" signal_output.txt | head -1 | sed 's/^[[:space:]]*//' || echo "BUY Threshold: Unknown")
-        SELL_THRESHOLD=$(grep "SELL Threshold" signal_output.txt | head -1 | sed 's/^[[:space:]]*//' || echo "SELL Threshold: Unknown")
-        POSITION=$(grep "Position:" signal_output.txt | head -1 | sed 's/^[[:space:]]*//' || echo "Position: Unknown")
+        DATE=$(grep "Date:" signal_output.txt | grep -v "Last Signal" | head -1 | awk '{print $2}' || echo "Unknown")
+        QQQ_CLOSE=$(grep "QQQ Close:" signal_output.txt | head -1 | awk '{print $3}' || echo "Unknown")
+        TQQQ_CLOSE=$(grep "TQQQ Close:" signal_output.txt | head -1 | awk '{print $3}' || echo "Unknown")
+        SMA200=$(grep "SMA200:" signal_output.txt | grep -v "QQQ vs" | head -1 | awk '{print $2}' || echo "Unknown")
+        QQQ_VS_SMA=$(grep "QQQ vs SMA200:" signal_output.txt | head -1 | awk '{print $4}' || echo "Unknown")
+        BUY_THRESHOLD=$(grep "BUY Threshold" signal_output.txt | head -1 | awk '{print $4}' || echo "Unknown")
+        SELL_THRESHOLD=$(grep "SELL Threshold" signal_output.txt | head -1 | awk '{print $4}' || echo "Unknown")
+        POSITION=$(grep "Position:" signal_output.txt | head -1 | awk '{print $2}' || echo "Unknown")
 
         # Debug: show what we captured
         echo "=== Captured Data ==="
-        echo "SIGNAL: $SIGNAL"
-        echo "DATE: $DATE"
-        echo "QQQ_CLOSE: $QQQ_CLOSE"
-        echo "TQQQ_CLOSE: $TQQQ_CLOSE"
-        echo "SMA200: $SMA200"
-        echo "QQQ_VS_SMA: $QQQ_VS_SMA"
-        echo "BUY_THRESHOLD: $BUY_THRESHOLD"
-        echo "SELL_THRESHOLD: $SELL_THRESHOLD"
-        echo "POSITION: $POSITION"
+        echo "SIGNAL: [$SIGNAL]"
+        echo "DATE: [$DATE]"
+        echo "QQQ_CLOSE: [$QQQ_CLOSE]"
+        echo "TQQQ_CLOSE: [$TQQQ_CLOSE]"
+        echo "SMA200: [$SMA200]"
+        echo "QQQ_VS_SMA: [$QQQ_VS_SMA]"
+        echo "BUY_THRESHOLD: [$BUY_THRESHOLD]"
+        echo "SELL_THRESHOLD: [$SELL_THRESHOLD]"
+        echo "POSITION: [$POSITION]"
         echo "====================="
+
+        # Show the actual matching lines for debugging
+        echo "=== Matched Lines ==="
+        echo "Date line: $(grep 'Date:' signal_output.txt | grep -v 'Last Signal' | head -1)"
+        echo "QQQ Close line: $(grep 'QQQ Close:' signal_output.txt | head -1)"
+        echo "TQQQ Close line: $(grep 'TQQQ Close:' signal_output.txt | head -1)"
+        echo "SMA200 line: $(grep 'SMA200:' signal_output.txt | grep -v 'QQQ vs' | head -1)"
+        echo "====================="
+
+        # Verify extracted values are not empty
+        if [ -z "$DATE" ] || [ "$DATE" = "Unknown" ]; then
+          echo "⚠️  WARNING: Failed to extract date from output"
+        fi
+        if [ -z "$QQQ_CLOSE" ] || [ "$QQQ_CLOSE" = "Unknown" ]; then
+          echo "⚠️  WARNING: Failed to extract QQQ close from output"
+        fi
 
         # Save to GITHUB_OUTPUT (need to handle multiline carefully)
         {
@@ -106,42 +147,59 @@ jobs:
           echo "is_alert=false" >> $GITHUB_OUTPUT
         fi
 
-        # Always exit with 0 - we handle failures in a separate step
+        # Extract just the date for timestamp file
+        TRADE_DATE=$(echo "$DATE" | awk '{print $2}')
+        echo "trade_date=$TRADE_DATE" >> $GITHUB_OUTPUT
+
         exit 0
 
     - name: Generate Summary
       if: always()
       run: |
+        # Use shell variables to avoid shell interpretation of $ in values
+        DATE='${{ steps.signal.outputs.date }}'
+        QQQ_CLOSE='${{ steps.signal.outputs.qqq_close }}'
+        TQQQ_CLOSE='${{ steps.signal.outputs.tqqq_close }}'
+        SMA200='${{ steps.signal.outputs.sma200 }}'
+        QQQ_VS_SMA='${{ steps.signal.outputs.qqq_vs_sma }}'
+        BUY_THRESHOLD='${{ steps.signal.outputs.buy_threshold }}'
+        SELL_THRESHOLD='${{ steps.signal.outputs.sell_threshold }}'
+        POSITION='${{ steps.signal.outputs.position }}'
+        SIGNAL='${{ steps.signal.outputs.signal }}'
+        ALERT_TYPE='${{ steps.signal.outputs.alert_type }}'
+
         echo "# 📊 TQQQ 200-Day SMA Daily Signal" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Market Data" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.date }}" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.qqq_close }}" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.tqqq_close }}" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.sma200 }}" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.qqq_vs_sma }}" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Date** | $DATE |" >> $GITHUB_STEP_SUMMARY
+        echo "| **QQQ Close** | $QQQ_CLOSE |" >> $GITHUB_STEP_SUMMARY
+        echo "| **TQQQ Close** | $TQQQ_CLOSE |" >> $GITHUB_STEP_SUMMARY
+        echo "| **SMA200** | $SMA200 |" >> $GITHUB_STEP_SUMMARY
+        echo "| **QQQ vs SMA200** | $QQQ_VS_SMA |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Trading Thresholds" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.buy_threshold }}" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.sell_threshold }}" >> $GITHUB_STEP_SUMMARY
+        echo "| Threshold | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **BUY (+5%)** | $BUY_THRESHOLD |" >> $GITHUB_STEP_SUMMARY
+        echo "| **SELL (-3%)** | $SELL_THRESHOLD |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Current Signal" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.position }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Position:** $POSITION" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Status" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.signal.outputs.signal }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** $SIGNAL" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # Add alert badge if BUY or SELL
-        if [ "${{ steps.signal.outputs.alert_type }}" = "BUY" ]; then
+        if [ "$ALERT_TYPE" = "BUY" ]; then
           echo "## 🚨 TRADING ALERT: BUY SIGNAL DETECTED 🚨" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Action Required**: Consider entering TQQQ position" >> $GITHUB_STEP_SUMMARY
-        elif [ "${{ steps.signal.outputs.alert_type }}" = "SELL" ]; then
+        elif [ "$ALERT_TYPE" = "SELL" ]; then
           echo "## 🚨 TRADING ALERT: SELL SIGNAL DETECTED 🚨" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Action Required**: Consider exiting TQQQ position to cash" >> $GITHUB_STEP_SUMMARY
@@ -162,6 +220,48 @@ jobs:
           signal_output.txt
           data/signals_log.csv
         retention-days: 90
+
+    - name: Commit updated cache and chart
+      # Only commit if:
+      # 1. Workflow succeeded
+      # 2. Fresh data was fetched (not cached)
+      # 3. This is a scheduled run (not manual trigger)
+      if: success() && steps.signal.outputs.should_commit == 'true' && github.event_name == 'schedule'
+      run: |
+        # Update last_updated.json with current date
+        cat > .github/last_updated.json << EOF
+        {
+          "date": "${{ steps.signal.outputs.trade_date }}",
+          "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "status": "success"
+        }
+        EOF
+
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add data/market_data_cache.pkl data/tqqq_sma_chart.html data/position_state.json .github/last_updated.json
+
+        # Only commit if there are changes
+        if git diff --staged --quiet; then
+          echo "ℹ️  No changes to cache, chart, position, or timestamp"
+        else
+          git commit -m "chore: update market data, position state [${{ steps.signal.outputs.trade_date }}] [skip ci]"
+          git push
+          echo "✅ Updated cache, chart, position state, and timestamp committed"
+        fi
+
+    - name: Skip commit message
+      if: success() && (steps.signal.outputs.should_commit != 'true' || github.event_name != 'schedule')
+      run: |
+        echo "ℹ️  Skipping commit because:"
+        if [ "${{ steps.signal.outputs.should_commit }}" != "true" ]; then
+          echo "   - Using cached data (no fresh fetch)"
+        fi
+        if [ "${{ github.event_name }}" != "schedule" ]; then
+          echo "   - Manual workflow run (only scheduled runs commit)"
+        fi
+        echo ""
+        echo "Summary and artifacts will still be generated."
 
     - name: Fail workflow on trading signal (to trigger notification)
       if: steps.signal.outputs.is_alert == 'true'
