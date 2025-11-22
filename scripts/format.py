@@ -2,6 +2,10 @@
 """
 Format script to clean up trailing whitespace and empty lines with spaces.
 
+Usage:
+    uv run format           # Format files (modify in place)
+    uv run format --check   # Check formatting (no modifications, exit 1 if issues found)
+
 Behavior:
 - Python/YAML/TOML/Shell/JSON/CSV files: Removes ALL trailing whitespace
 - Markdown files: Preserves trailing spaces on content lines (needed for line breaks),
@@ -14,7 +18,7 @@ import sys
 from pathlib import Path
 
 
-def format_file(filepath):
+def format_file(filepath, check_only=False):
     """
     Remove trailing whitespace and clean empty lines from a file.
 
@@ -27,9 +31,10 @@ def format_file(filepath):
 
     Args:
         filepath: Path to file to format
+        check_only: If True, don't modify file, just check if it needs formatting
 
     Returns:
-        True if file was modified, False otherwise
+        True if file needs/needed formatting, False otherwise
     """
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -82,6 +87,10 @@ def format_file(filepath):
 
     # Write back if modified
     if modified:
+        if check_only:
+            # In check mode, don't modify, just return True
+            return True
+
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.writelines(formatted_lines)
@@ -104,6 +113,9 @@ def should_format(filepath):
 
 def main():
     """Main entry point - format all eligible files in the project."""
+    # Check for --check flag
+    check_only = '--check' in sys.argv
+
     project_root = Path(__file__).parent.parent
 
     # Directories to skip
@@ -114,11 +126,15 @@ def main():
         '*.egg-info'
     }
 
-    print("🎨 Formatting files...")
+    if check_only:
+        print("🔍 Checking code formatting...")
+    else:
+        print("🎨 Formatting files...")
     print("   • Python/YAML/Shell: Remove all trailing whitespace")
     print("   • Markdown: Preserve trailing spaces on content lines, clean empty lines")
     print()
 
+    files_need_formatting = []
     files_formatted = 0
     files_checked = 0
 
@@ -138,26 +154,46 @@ def main():
             if should_format(filepath):
                 files_checked += 1
 
-                # Format the file
-                if format_file(filepath):
-                    files_formatted += 1
+                # Format or check the file
+                if format_file(filepath, check_only=check_only):
                     rel_path = filepath.relative_to(project_root)
-                    print(f"  ✓ {rel_path}")
+                    if check_only:
+                        files_need_formatting.append(rel_path)
+                        print(f"  ❌ {rel_path}")
+                    else:
+                        files_formatted += 1
+                        print(f"  ✓ {rel_path}")
 
     print()
     print(f"📊 Summary:")
     print(f"   Files checked: {files_checked}")
-    print(f"   Files formatted: {files_formatted}")
-    print(f"   Files unchanged: {files_checked - files_formatted}")
 
-    if files_formatted > 0:
-        print()
-        print("✨ Formatting complete!")
-        return 0
+    if check_only:
+        print(f"   Files needing formatting: {len(files_need_formatting)}")
+        print(f"   Files correctly formatted: {files_checked - len(files_need_formatting)}")
+
+        if files_need_formatting:
+            print()
+            print("❌ Formatting check FAILED!")
+            print()
+            print("Run 'uv run format' to fix formatting issues.")
+            return 1
+        else:
+            print()
+            print("✅ All files are correctly formatted!")
+            return 0
     else:
-        print()
-        print("✅ All files already formatted correctly!")
-        return 0
+        print(f"   Files formatted: {files_formatted}")
+        print(f"   Files unchanged: {files_checked - files_formatted}")
+
+        if files_formatted > 0:
+            print()
+            print("✨ Formatting complete!")
+            return 0
+        else:
+            print()
+            print("✅ All files already formatted correctly!")
+            return 0
 
 
 if __name__ == "__main__":

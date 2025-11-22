@@ -143,6 +143,7 @@ All project commands are available via `uv run`:
 |---------|-------------|
 | `uv run tqqq-sma` | Run the main trading signal script |
 | `uv run format` | Format code (strip trailing whitespace) |
+| `uv run format --check` | Check formatting without modifying files (CI) |
 | `uv run clean` | Remove build artifacts and caches |
 | `uv run clean-data` | Delete data/ folder (with confirmation) |
 | `uv run pytest` | Run all unit tests |
@@ -505,6 +506,11 @@ The test suite includes:
 - ✅ **16 tests** for data validation and edge cases
 - ✅ **15 tests** for signal logic (BUY/SELL conditions, thresholds)
 - ✅ **8 tests** for state and cache management
+- ✅ **2 tests** for output format parsing (GitHub Actions integration)
+- ✅ **2 tests** for code formatting validation
+- ✅ **10 tests** for additional functionality
+
+**Total: 86 tests** with high coverage of core functionality.
 
 **Test Categories:**
 - `test_calculations.py` - SMA computation, percentage calculations, formatting
