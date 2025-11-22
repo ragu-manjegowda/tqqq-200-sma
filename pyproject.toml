@@ -19,6 +19,9 @@ dev = [
 
 [project.scripts]
 tqqq-sma = "src.main:main"
+format = "scripts.format:main"
+clean = "scripts.clean:main"
+clean-data = "scripts.clean_data:main"
 
 [tool.uv]
 package = true

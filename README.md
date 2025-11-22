@@ -135,6 +135,20 @@ Add this line:
 5 13 * * 1-5 cd /home/ragu/Downloads/tqqq-sma && /path/to/uv run tqqq-sma
 ```
 
+### Available Commands
+
+All project commands are available via `uv run`:
+
+| Command | Description |
+|---------|-------------|
+| `uv run tqqq-sma` | Run the main trading signal script |
+| `uv run format` | Format code (strip trailing whitespace) |
+| `uv run clean` | Remove build artifacts and caches |
+| `uv run clean-data` | Delete data/ folder (with confirmation) |
+| `uv run pytest` | Run all unit tests |
+| `uv run pytest -v` | Run tests with verbose output |
+| `uv run pytest --cov=src` | Run tests with coverage report |
+
 ## 📊 Visualizations
 
 ### 1. ASCII Chart (Terminal)
@@ -532,15 +546,17 @@ Cleans up whitespace in all project files:
 
 **Remove build artifacts:**
 ```bash
-./scripts/clean.sh
+uv run clean
 ```
-Removes: `__pycache__`, `*.egg-info`, `.coverage`, `.pytest_cache`, build artifacts
+Removes: `__pycache__`, `*.egg-info`, `.coverage`, `.pytest_cache`, build artifacts, linter caches
 
 **Clean cached data** (with confirmation):
 ```bash
-./scripts/clean-cached-data.sh
+uv run clean-data
 ```
 ⚠️ Deletes: `data/` folder (market cache, position state, trade log, charts)
+
+> **Note**: Shell script versions (`./scripts/clean.sh` and `./scripts/clean-cached-data.sh`) are also available.
 
 ### Dependencies
 
@@ -558,9 +574,10 @@ Removes: `__pycache__`, `*.egg-info`, `.coverage`, `.pytest_cache`, build artifa
 1. Modify settings in `src/config.py`
 2. Run: `uv run tqqq-sma`
 3. Check output, logs, and charts in `data/` directory
-4. Clear cache if needed: `./scripts/clean-cached-data.sh` or `rm data/market_data_cache.pkl`
+4. Clear cache if needed: `uv run clean-data` or `rm data/market_data_cache.pkl`
 5. Run tests: `uv run pytest -v`
 6. Format code: `uv run format` (before committing)
+7. Clean build artifacts: `uv run clean` (optional)
 
 ### Customization Ideas
 - Change SMA period (e.g., 50-day, 100-day)
